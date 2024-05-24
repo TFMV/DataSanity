@@ -1,5 +1,6 @@
-# Use the official image as a parent image
-FROM python:3.12
+# Use the official Python image.
+# https://hub.docker.com/_/python
+FROM python:3.10-slim
 
 # Set the working directory in the container
 WORKDIR /app
@@ -7,12 +8,17 @@ WORKDIR /app
 # Copy the current directory contents into the container at /app
 COPY . /app
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+# Copy config.yaml to the appropriate location
+COPY config/config.yaml /app/config/config.yaml
 
-# Make port 80 available to the world outside this container
-EXPOSE 80
+# Install any needed packages specified in requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Make port 8080 available to the world outside this container
+EXPOSE 8080
+
+# Define environment variable
+ENV NAME DataSanity
 
 # Run app.py when the container launches
-CMD ["uvicorn", "app.app:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["uvicorn", "app.app:app", "--host", "0.0.0.0", "--port", "8080"]

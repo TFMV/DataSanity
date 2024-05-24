@@ -1,6 +1,6 @@
+import os
 from fastapi import FastAPI
-from app.config import get_db_config
-from app.expectations import create_datasource, run_expectations
+from app.expectations import create_datasource, run_expectations, load_db_config
 
 app = FastAPI()
 
@@ -11,5 +11,14 @@ def read_root():
 @app.get("/run_checks")
 def run_checks():
     datasource = create_datasource()
-    results = run_expectations(datasource.name)
+    db_config, tables = load_db_config()
+    results = []
+    for table in tables:
+        table_name = table['name']
+        results.append(run_expectations("my_datasource", table_name))
     return results
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)

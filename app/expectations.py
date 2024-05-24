@@ -1,42 +1,45 @@
+import yaml
 import great_expectations as gx
-from great_expectations.core.batch import BatchRequest
-from app.config import get_db_config, get_tables_config
+from sqlalchemy import create_engine
 
-context = gx.get_context()
+def load_db_config():
+    with open("config/config.yaml", "r") as file:
+        config = yaml.safe_load(file)
+    return config["db_creds"], config["tables"]
 
 def create_datasource():
-    db_config = get_db_config()
-    connection_string = f"postgresql+psycopg2://{db_config['username']}:{db_config['password']}@{db_config['host']}:{db_config['port']}/{db_config['database']}"
-    datasource_name = "my_datasource"
+    db_config, tables = load_db_config()
+    context = gx.get_context()
     
-    datasource = context.sources.add_postgres(
-        name=datasource_name, 
-        connection_string=connection_string
+    connection_string = (
+        f"postgresql+psycopg2://{db_config['username']}:{db_config['password']}"
+        f"@{db_config['host']}:{db_config['port']}/{db_config['database']}"
     )
     
+    datasource = context.sources.add_postgres(name="my_datasource", connection_string=connection_string)
+    
+    schema = db_config['schema']
+    for table in tables:
+        full_table_name = f"{schema}.{table['name']}"
+        datasource.add_table_asset(name=table['name'], table_name=full_table_name)
+    
+    context.add_datasource(datasource)
     return datasource
 
-def run_expectations(datasource_name):
+def run_expectations(datasource_name, table_name):
     context = gx.get_context()
-    tables_config = get_tables_config()
+    suite = context.get_expectation_suite(name="default")
+    validator = context.get_validator(datasource_name=datasource_name, data_asset_name=table_name, expectation_suite=suite)
     
-    results = {}
+    db_config, tables = load_db_config()
+    table_config = next(t for t in tables if t['name'] == table_name)
+    results = []
     
-    for table in tables_config:
-        asset_name = table['name']
-        expectations = table['expectations']
-        
-        batch_request = BatchRequest(
-            datasource_name=datasource_name,
-            data_asset_name=asset_name
-        )
-        validator = context.get_validator(batch_request=batch_request)
-        
-        table_results = {}
-        for expectation in expectations:
-            result = getattr(validator, expectation['name'])(*expectation['args'], **expectation['kwargs'])
-            table_results[expectation['name']] = result
-        
-        results[asset_name] = table_results
-        
+    for exp in table_config['expectations']:
+        exp_name = exp['name']
+        args = exp['args']
+        kwargs = exp['kwargs']
+        result = getattr(validator, exp_name)(*args, **kwargs)
+        results.append(result)
+    
     return results

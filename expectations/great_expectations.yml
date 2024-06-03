@@ -1,0 +1,114 @@
+data_docs_sites:
+  local_site:
+    class_name: "SiteBuilder"
+    store_backend:
+      class_name: "TupleStoreBackend"
+      ge_cloud_id: None
+      ge_cloud_access_token: None
+      ge_cloud_base_url: None
+    site_index_builder:
+      class_name: "DefaultSiteIndexBuilder"
+    show_how_to_install: True
+    show_cta_footer: True
+stores:
+  expectations_store:
+    class_name: "ExpectationsStore"
+    store_backend:
+      class_name: "TupleStoreBackend"
+  validations_store:
+    class_name: "ValidationsStore"
+    store_backend:
+      class_name: "TupleStoreBackend"
+  evaluation_parameter_store:
+    class_name: "EvaluationParameterStore"
+    store_backend:
+      class_name: "InMemoryStoreBackend"
+  checkpoint_store:
+    class_name: "CheckpointStore"
+    store_backend:
+      class_name: "TupleStoreBackend"
+data_connectors:
+  default:
+    class_name: "ConfiguredAssetDataConnector"
+    base_directory: None
+    default_data_asset_name: null
+    module_name: "great_expectations.datasource.data_connector"
+    assets:
+    - name: default
+      datasource_name: "default"
+      generator_asset: "bigquery"
+      generator_asset_name: "bigquery"
+      batch_identifiers:
+      - dataset_id: dataset_name # Replace with your dataset
+      - table_name: table_name # Replace with your table name
+    generators:
+      bigquery:
+        class_name: "RuntimeDataConnector"
+        assets:
+          - name: bigquery
+            module_name: "great_expectations.datasource.data_connector"
+            batch_identifiers:
+              - dataset_id: $dataset_id
+              - table_name: $table_name
+            runtime_parameters:
+              query: $query
+      default:
+        class_name: "ConfiguredAssetFilesystemDataConnector"
+        assets:
+        - name: default
+          batch_identifiers:
+          - file_name
+          default_regex: r"^.*$"
+        datasource_name: "default"
+        default_data_asset_name: null
+        module_name: "great_expectations.datasource.data_connector"
+        base_directory: None
+  runtime:
+    class_name: "RuntimeDataConnector"
+    module_name: "great_expectations.datasource.data_connector"
+    assets:
+    - name: bigquery
+      batch_identifiers:
+        - dataset_id: $dataset_id
+        - table_name: $table_name
+      runtime_parameters:
+        query: $query
+datasources:
+  default:
+    class_name: "Datasource"
+    execution_engine:
+      class_name: "PandasExecutionEngine"
+    data_connectors:
+      default: default
+checkpoints:
+  default_checkpoint:
+    class_name: "Checkpoint"
+    config_version: 1.0
+    template_name: "project_template"
+    module_name: "great_expectations.checkpoint"
+    name: "default_checkpoint"
+    validations:
+      - batch_request:
+          datasource_name: "default"
+          data_connector_name: "bigquery"
+          data_asset_name: table_name # Replace with your table name
+          runtime_parameters:
+            query: SELECT * FROM dataset_name.table_name # Replace with your dataset and table
+        expectation_suite_name: "default_suite"
+        action_list:
+        - name: store_validation_result
+          action:
+            class_name: "StoreValidationResultAction"
+            store_name: validations_store
+        - name: store_evaluation_parameters
+          action:
+            class_name: "StoreEvaluationParametersAction"
+            store_name: evaluation_parameter_store
+        - name: store_metrics
+          action:
+            class_name: "StoreMetricsAction"
+            store_name: evaluation_parameter_store
+        - name: store_expectations
+          action:
+            class_name: "StoreValidationResultAction"
+            store_name: expectations_store

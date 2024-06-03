@@ -11,11 +11,11 @@ def read_root():
 @app.get("/run_checks")
 def run_checks():
     datasource = create_datasource()
-    db_config, tables = load_db_config()
     results = []
+    db_config, tables = load_db_config()
     for table in tables:
         table_name = table['name']
-        results.append(run_expectations("my_datasource", table_name))
+        results.append(run_expectations(datasource.name, table_name))
     return results
 
 if __name__ == "__main__":
